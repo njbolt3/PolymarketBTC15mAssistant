@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { fetchKlines, fetchLastPrice } from "./data/binance.js";
+import { fetchKlines, fetchLastPrice } from "./data/coinbase.js";
 import { fetchChainlinkBtcUsd } from "./data/chainlink.js";
 import { startChainlinkPriceStream } from "./data/chainlinkWs.js";
 import { startPolymarketChainlinkPriceStream } from "./data/polymarketLiveWs.js";
@@ -20,11 +20,12 @@ import { detectRegime } from "./engines/regime.js";
 import { scoreDirection, applyTimeAwareness } from "./engines/probability.js";
 import { computeEdge, decide } from "./engines/edge.js";
 import { appendCsvRow, formatNumber, formatPct, getCandleWindowTiming, sleep } from "./utils.js";
-import { startBinanceTradeStream } from "./data/binanceWs.js";
+import { startCoinbaseTickerStream } from "./data/coinbaseWs.js";
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { applyGlobalProxyFromEnv } from "./net/proxy.js";
+import { startWebServer, broadcastData } from "./server.js";
 
 function countVwapCrosses(closes, vwapSeries, lookback) {
   if (closes.length < lookback || vwapSeries.length < lookback) return null;
@@ -302,19 +303,28 @@ async function resolveCurrentBtc15mMarket() {
   return picked;
 }
 
+function safeJsonParse(str, fallback = []) {
+  try {
+    return JSON.parse(str);
+  } catch {
+    return fallback;
+  }
+}
+
 async function fetchPolymarketSnapshot() {
   const market = await resolveCurrentBtc15mMarket();
 
   if (!market) return { ok: false, reason: "market_not_found" };
 
-  const outcomes = Array.isArray(market.outcomes) ? market.outcomes : (typeof market.outcomes === "string" ? JSON.parse(market.outcomes) : []);
+  const outcomes = Array.isArray(market.outcomes) ? market.outcomes : (typeof market.outcomes === "string" ? safeJsonParse(market.outcomes, []) : []);
   const outcomePrices = Array.isArray(market.outcomePrices)
     ? market.outcomePrices
-    : (typeof market.outcomePrices === "string" ? JSON.parse(market.outcomePrices) : []);
+    : (typeof market.outcomePrices === "string" ? safeJsonParse(market.outcomePrices, []) : []);
 
   const clobTokenIds = Array.isArray(market.clobTokenIds)
     ? market.clobTokenIds
-    : (typeof market.clobTokenIds === "string" ? JSON.parse(market.clobTokenIds) : []);
+    : (typeof market.clobTokenIds === "string" ? safeJsonParse(market.clobTokenIds, []) : []);
+
 
   let upTokenId = null;
   let downTokenId = null;
@@ -396,9 +406,12 @@ async function fetchPolymarketSnapshot() {
 }
 
 async function main() {
-  const binanceStream = startBinanceTradeStream({ symbol: CONFIG.symbol });
+  const coinbaseStream = startCoinbaseTickerStream({ productId: CONFIG.productId });
   const polymarketLiveStream = startPolymarketChainlinkPriceStream({});
   const chainlinkStream = startChainlinkPriceStream({});
+
+  // Start web server
+  startWebServer();
 
   let prevSpotPrice = null;
   let prevCurrentPrice = null;
@@ -422,7 +435,7 @@ async function main() {
   while (true) {
     const timing = getCandleWindowTiming(CONFIG.candleWindowMinutes);
 
-    const wsTick = binanceStream.getLast();
+    const wsTick = coinbaseStream.getLast();
     const wsPrice = wsTick?.price ?? null;
 
     const polymarketWsTick = polymarketLiveStream.getLast();
@@ -439,8 +452,8 @@ async function main() {
           : fetchChainlinkBtcUsd();
 
       const [klines1m, klines5m, lastPrice, chainlink, poly] = await Promise.all([
-        fetchKlines({ interval: "1m", limit: 240 }),
-        fetchKlines({ interval: "5m", limit: 200 }),
+        fetchKlines({ granularity: 60, limit: 240 }),
+        fetchKlines({ granularity: 300, limit: 200 }),
         fetchLastPrice(),
         chainlinkPromise,
         fetchPolymarketSnapshot()
@@ -632,7 +645,7 @@ async function main() {
         }
       }
 
-      const binanceSpotBaseLine = colorPriceLine({ label: "BTC (Binance)", price: spotPrice, prevPrice: prevSpotPrice, decimals: 0, prefix: "$" });
+      const coinbaseSpotBaseLine = colorPriceLine({ label: "BTC (Coinbase)", price: spotPrice, prevPrice: prevSpotPrice, decimals: 0, prefix: "$" });
       const diffLine = (spotPrice !== null && currentPrice !== null && Number.isFinite(spotPrice) && Number.isFinite(currentPrice) && currentPrice !== 0)
         ? (() => {
           const diffUsd = spotPrice - currentPrice;
@@ -641,9 +654,9 @@ async function main() {
           return ` (${sign}$${Math.abs(diffUsd).toFixed(2)}, ${sign}${Math.abs(diffPct).toFixed(2)}%)`;
         })()
         : "";
-      const binanceSpotLine = `${binanceSpotBaseLine}${diffLine}`;
-      const binanceSpotValue = binanceSpotLine.split(": ")[1] ?? binanceSpotLine;
-      const binanceSpotKvLine = kv("BTC (Binance):", binanceSpotValue);
+      const coinbaseSpotLine = `${coinbaseSpotBaseLine}${diffLine}`;
+      const coinbaseSpotValue = coinbaseSpotLine.split(": ")[1] ?? coinbaseSpotLine;
+      const coinbaseSpotKvLine = kv("BTC (Coinbase):", coinbaseSpotValue);
 
       const titleLine = poly.ok ? `${poly.market?.question ?? "-"}` : "-";
       const marketLine = kv("Market:", poly.ok ? (poly.market?.slug ?? "-") : "-");
@@ -691,7 +704,7 @@ async function main() {
         "",
         sepLine(),
         "",
-        binanceSpotKvLine,
+        coinbaseSpotKvLine,
         "",
         sepLine(),
         "",
@@ -702,6 +715,32 @@ async function main() {
       ].filter((x) => x !== null);
 
       renderScreen(lines.join("\n") + "\n");
+
+      // Broadcast data to web clients
+      broadcastData({
+        marketTitle: poly.ok ? (poly.market?.question ?? null) : null,
+        marketSlug: poly.ok ? (poly.market?.slug ?? null) : null,
+        timeLeftMin,
+        predLong: timeAware?.adjustedUp ?? null,
+        predShort: timeAware?.adjustedDown ?? null,
+        polyUp: marketUp,
+        polyDown: marketDown,
+        liquidity,
+        heikenAshi: `${consec.color ?? "-"} x${consec.count}`,
+        heikenNarrative: haNarrative,
+        rsi: `${formatNumber(rsiNow, 1)} ${rsiSlope !== null && rsiSlope < 0 ? "↓" : rsiSlope !== null && rsiSlope > 0 ? "↑" : "-"}`,
+        rsiNarrative,
+        macd: macdLabel,
+        macdNarrative,
+        vwap: `${formatNumber(vwapNow, 0)} (${formatPct(vwapDist, 2)}) | slope: ${vwapSlopeLabel}`,
+        vwapNarrative,
+        delta: `${formatSignedDelta(delta1m, lastClose)} | ${formatSignedDelta(delta3m, lastClose)}`,
+        currentPrice,
+        priceToBeat,
+        ptbDelta,
+        coinbasePrice: spotPrice,
+        session: `${fmtEtTime(new Date())} | ${getBtcSession(new Date())}`
+      });
 
       prevSpotPrice = spotPrice ?? prevSpotPrice;
       prevCurrentPrice = currentPrice ?? prevCurrentPrice;

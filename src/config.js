@@ -1,6 +1,6 @@
 export const CONFIG = {
-  symbol: "BTCUSDT",
-  binanceBaseUrl: "https://api.binance.com",
+  productId: "BTC-USD",
+  coinbaseBaseUrl: "https://api.exchange.coinbase.com",
   gammaBaseUrl: "https://gamma-api.polymarket.com",
   clobBaseUrl: "https://clob.polymarket.com",
 
@@ -31,5 +31,10 @@ export const CONFIG = {
     polygonWssUrls: (process.env.POLYGON_WSS_URLS || "").split(",").map((s) => s.trim()).filter(Boolean),
     polygonWssUrl: process.env.POLYGON_WSS_URL || "",
     btcUsdAggregator: process.env.CHAINLINK_BTC_USD_AGGREGATOR || "0xc907E116054Ad103354f2D350FD2514433D57F6f"
+  },
+
+  web: {
+    enabled: (process.env.WEB_ENABLED || "true").toLowerCase() === "true",
+    port: Number(process.env.WEB_PORT) || 3000
   }
 };
