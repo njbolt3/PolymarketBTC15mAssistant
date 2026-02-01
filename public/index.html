@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -79,9 +80,17 @@
       text-transform: uppercase;
     }
 
-    .timer.green .timer-value { color: var(--green); }
-    .timer.yellow .timer-value { color: var(--yellow); }
-    .timer.red .timer-value { color: var(--red); }
+    .timer.green .timer-value {
+      color: var(--green);
+    }
+
+    .timer.yellow .timer-value {
+      color: var(--yellow);
+    }
+
+    .timer.red .timer-value {
+      color: var(--red);
+    }
 
     .grid {
       display: grid;
@@ -141,16 +150,26 @@
       margin-bottom: 4px;
     }
 
-    .predict-side.long .predict-label { color: var(--green); }
-    .predict-side.short .predict-label { color: var(--red); }
+    .predict-side.long .predict-label {
+      color: var(--green);
+    }
+
+    .predict-side.short .predict-label {
+      color: var(--red);
+    }
 
     .predict-value {
       font-size: 1.8rem;
       font-weight: 700;
     }
 
-    .predict-side.long .predict-value { color: var(--green); }
-    .predict-side.short .predict-value { color: var(--red); }
+    .predict-side.long .predict-value {
+      color: var(--green);
+    }
+
+    .predict-side.short .predict-value {
+      color: var(--red);
+    }
 
     .indicator-row {
       display: flex;
@@ -173,10 +192,21 @@
       font-size: 0.9rem;
     }
 
-    .indicator-value.green { color: var(--green); }
-    .indicator-value.red { color: var(--red); }
-    .indicator-value.yellow { color: var(--yellow); }
-    .indicator-value.neutral { color: var(--text-secondary); }
+    .indicator-value.green {
+      color: var(--green);
+    }
+
+    .indicator-value.red {
+      color: var(--red);
+    }
+
+    .indicator-value.yellow {
+      color: var(--yellow);
+    }
+
+    .indicator-value.neutral {
+      color: var(--text-secondary);
+    }
 
     .price-display {
       text-align: center;
@@ -193,8 +223,13 @@
       font-size: 0.9rem;
     }
 
-    .price-delta.positive { color: var(--green); }
-    .price-delta.negative { color: var(--red); }
+    .price-delta.positive {
+      color: var(--green);
+    }
+
+    .price-delta.negative {
+      color: var(--red);
+    }
 
     .polymarket-prices {
       display: flex;
@@ -212,16 +247,26 @@
       margin-bottom: 4px;
     }
 
-    .poly-side.up .poly-label { color: var(--green); }
-    .poly-side.down .poly-label { color: var(--red); }
+    .poly-side.up .poly-label {
+      color: var(--green);
+    }
+
+    .poly-side.down .poly-label {
+      color: var(--red);
+    }
 
     .poly-price {
       font-size: 1.4rem;
       font-weight: 600;
     }
 
-    .poly-side.up .poly-price { color: var(--green); }
-    .poly-side.down .poly-price { color: var(--red); }
+    .poly-side.up .poly-price {
+      color: var(--green);
+    }
+
+    .poly-side.down .poly-price {
+      color: var(--red);
+    }
 
     .status-bar {
       display: flex;
@@ -242,8 +287,13 @@
       margin-right: 6px;
     }
 
-    .status-dot.connected { background: var(--green); }
-    .status-dot.disconnected { background: var(--red); }
+    .status-dot.connected {
+      background: var(--green);
+    }
+
+    .status-dot.disconnected {
+      background: var(--red);
+    }
 
     .footer {
       text-align: center;
@@ -252,16 +302,163 @@
       font-size: 0.75rem;
     }
 
-    .hidden { display: none !important; }
+    .polymarket-link {
+      display: block;
+      text-align: center;
+      margin-top: 12px;
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+
+    .polymarket-link:hover {
+      text-decoration: underline;
+    }
+
+    .signal-card {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .signal-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 8px 0;
+      text-transform: uppercase;
+    }
+
+    .signal-strength {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      display: inline-block;
+      margin: 0 auto;
+    }
+
+    .strength-strong {
+      background: rgba(0, 255, 127, 0.2);
+      color: var(--green);
+    }
+
+    .strength-good {
+      background: rgba(0, 255, 127, 0.1);
+      color: var(--green);
+    }
+
+    .strength-optional {
+      background: rgba(0, 191, 255, 0.1);
+      color: var(--blue);
+    }
+
+    .strength-none {
+      background: rgba(144, 157, 171, 0.1);
+      color: var(--text-secondary);
+    }
+
+    .phase-badge {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+    }
+
+    .phase-badge b {
+      color: var(--text-primary);
+    }
+
+    .history-table {
+      width: 100%;
+      font-size: 0.8rem;
+      border-collapse: collapse;
+    }
+
+    .history-table th,
+    .history-table td {
+      padding: 8px 6px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .history-table th {
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: help;
+    }
+
+    .history-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .history-table .positive {
+      color: var(--green);
+    }
+
+    .history-table .negative {
+      color: var(--red);
+    }
+
+    .history-table .neutral {
+      color: var(--text-secondary);
+    }
+
+    .history-table .long {
+      color: var(--green);
+    }
+
+    .history-table .short {
+      color: var(--red);
+    }
+
+    .history-table .up {
+      color: var(--green);
+    }
+
+    .history-table .down {
+      color: var(--red);
+    }
+
+    .history-table .flat {
+      color: var(--text-secondary);
+    }
+
+    .history-table .correct {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .history-table .incorrect {
+      color: var(--red);
+      font-weight: 600;
+    }
 
     @media (max-width: 600px) {
-      body { padding: 12px; }
-      .timer-value { font-size: 2rem; }
-      .predict-value { font-size: 1.4rem; }
-      .price-main { font-size: 1.6rem; }
+      body {
+        padding: 12px;
+      }
+
+      .timer-value {
+        font-size: 2rem;
+      }
+
+      .predict-value {
+        font-size: 1.4rem;
+      }
+
+      .price-main {
+        font-size: 1.6rem;
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <div class="header">
@@ -273,6 +470,8 @@
           <div class="timer-label">Time Remaining</div>
         </div>
       </div>
+      <a href="#" id="polymarketLink" class="polymarket-link" target="_blank" style="display: none;">View on Polymarket
+        →</a>
     </div>
 
     <div class="grid">
@@ -288,6 +487,13 @@
             <div class="predict-value" id="predShort">-</div>
           </div>
         </div>
+      </div>
+
+      <div class="card signal-card">
+        <div class="card-title">Trade Signal</div>
+        <div id="signalStrength" class="signal-strength strength-none">WAITING</div>
+        <div id="signalValue" class="signal-value">-</div>
+        <div id="marketPhase" class="phase-badge">Phase: <b>-</b></div>
       </div>
 
       <div class="card">
@@ -351,6 +557,24 @@
       </div>
     </div>
 
+    <div class="grid">
+      <div class="card">
+        <div class="card-title">Prediction History</div>
+        <div id="winRate" style="font-size: 1.2rem; font-weight: 600; text-align: center; margin-bottom: 12px;">-</div>
+        <div style="overflow-x: auto;">
+          <table class="history-table" id="historyTable">
+            <thead id="historyHead"></thead>
+            <tbody id="historyBody">
+              <tr>
+                <td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 20px;">No history yet
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="status-bar">
       <div>
         <span class="status-dot disconnected" id="statusDot"></span>
@@ -391,7 +615,7 @@
         try {
           const data = JSON.parse(event.data);
           updateUI(data);
-        } catch (e) {}
+        } catch (e) { }
       };
     }
 
@@ -445,6 +669,28 @@
       document.getElementById('polyDown').textContent = data.polyDown !== null ? data.polyDown + '¢' : '-';
       document.getElementById('liquidity').textContent = data.liquidity ? '$' + Number(data.liquidity).toLocaleString() : '-';
 
+      // Trade Signal
+      if (data.recommendation) {
+        const rec = data.recommendation;
+        const signalVal = document.getElementById('signalValue');
+        const signalStrength = document.getElementById('signalStrength');
+        const phaseEl = document.getElementById('marketPhase');
+
+        if (rec.action === 'ENTER') {
+          signalVal.textContent = (rec.side === 'UP' ? 'BUY UP' : 'BUY DOWN');
+          signalVal.style.color = (rec.side === 'UP' ? 'var(--green)' : 'var(--red)');
+          signalStrength.textContent = rec.strength + ' ENTRY';
+          signalStrength.className = 'signal-strength strength-' + rec.strength.toLowerCase();
+        } else {
+          signalVal.textContent = 'NO TRADE';
+          signalVal.style.color = 'var(--text-secondary)';
+          signalStrength.textContent = 'WAITING';
+          signalStrength.className = 'signal-strength strength-none';
+        }
+
+        phaseEl.innerHTML = `Phase: <b>${rec.phase}</b>`;
+      }
+
       // Indicators
       const heikenEl = document.getElementById('heikenAshi');
       heikenEl.textContent = data.heikenAshi || '-';
@@ -466,7 +712,7 @@
 
       // Prices
       document.getElementById('currentPrice').textContent = formatPrice(data.currentPrice, 2);
-      
+
       const deltaEl = document.getElementById('priceDelta');
       if (data.ptbDelta !== null && data.ptbDelta !== undefined) {
         const sign = data.ptbDelta > 0 ? '+' : '';
@@ -482,9 +728,120 @@
 
       // Session
       document.getElementById('sessionInfo').textContent = data.session || '-';
+
+      // Polymarket link
+      const linkEl = document.getElementById('polymarketLink');
+      if (data.polymarketUrl) {
+        linkEl.href = data.polymarketUrl;
+        linkEl.style.display = 'block';
+      } else {
+        linkEl.style.display = 'none';
+      }
+
+      // History - render as table
+      const historyHead = document.getElementById('historyHead');
+      const historyBody = document.getElementById('historyBody');
+
+      // Set up headers with tooltips
+      historyHead.innerHTML = `<tr>
+        <th title="Time the prediction was made or settled">Time</th>
+        <th title="Technical Analysis model prediction at window start">Model</th>
+        <th title="Model's Long/Short probability percentages">L/S %</th>
+        <th title="Polymarket Up/Down prices at prediction time">Poly</th>
+        <th title="Bitcoin price at the start of the 15-minute window">Start</th>
+        <th title="Bitcoin price at the end of the 15-minute window">End</th>
+        <th title="Price change from start to end">Δ</th>
+        <th title="Actual market outcome - did price go UP or DOWN?">Outcome</th>
+        <th title="Was the model prediction correct?">Result</th>
+      </tr>`;
+
+      let historyRows = '';
+      if (data.history && data.history.length > 0) {
+        historyRows = data.history.map((h) => {
+          const predClass = h.modelPrediction === 'LONG' ? 'long' : 'short';
+          const predLabel = h.modelPrediction === 'LONG' ? '↑ L' : '↓ S';
+          const outcomeClass = h.actualOutcome.toLowerCase();
+          const outcomeLabel = h.actualOutcome === 'UP' ? '↑ UP' : h.actualOutcome === 'DOWN' ? '↓ DOWN' : 'FLAT';
+          const resultClass = h.correct === null ? 'neutral' : h.correct ? 'correct' : 'incorrect';
+          const resultLabel = h.correct === null ? '—' : h.correct ? '✓' : '✗';
+
+          // Format stats
+          const modelPct = h.modelLong !== null && h.modelShort !== null
+            ? `${Math.round(h.modelLong * 100)}/${Math.round(h.modelShort * 100)}`
+            : '-';
+          const polyPrices = h.polyUp !== null && h.polyDown !== null
+            ? `${h.polyUp}/${h.polyDown}`
+            : '-';
+          const startPriceStr = h.startPrice !== null ? '$' + Math.round(h.startPrice).toLocaleString() : '-';
+          const endPriceStr = h.endPrice !== null ? '$' + Math.round(h.endPrice).toLocaleString() : '-';
+          const priceDelta = h.startPrice !== null && h.endPrice !== null
+            ? (h.endPrice - h.startPrice).toFixed(0)
+            : '-';
+          const deltaClass = Number(priceDelta) > 0 ? 'positive' : Number(priceDelta) < 0 ? 'negative' : '';
+          const deltaSign = Number(priceDelta) > 0 ? '+' : '';
+
+          // Format time
+          const timeStr = h.settledAt ? new Date(h.settledAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '-';
+
+          return `<tr>
+            <td style="color: var(--text-secondary);">${timeStr}</td>
+            <td class="${predClass}">${predLabel}</td>
+            <td>${modelPct}</td>
+            <td>${polyPrices}</td>
+            <td>${startPriceStr}</td>
+            <td>${endPriceStr}</td>
+            <td class="${deltaClass}">${deltaSign}$${priceDelta}</td>
+            <td class="${outcomeClass}">${outcomeLabel}</td>
+            <td class="${resultClass}">${resultLabel}</td>
+          </tr>`;
+        }).join('');
+      } else {
+        historyRows = '';
+      }
+
+      // Build pending prediction row (if exists)
+      let pendingRow = '';
+      if (data.pending) {
+        const p = data.pending;
+        const predClass = p.modelLong > p.modelShort ? 'long' : 'short';
+        const predLabel = p.modelLong > p.modelShort ? '↑ L' : '↓ S';
+        const modelPct = p.modelLong !== null && p.modelShort !== null
+          ? `${Math.round(p.modelLong * 100)}/${Math.round(p.modelShort * 100)}`
+          : '-';
+        const polyPrices = p.polyUp !== null && p.polyDown !== null
+          ? `${p.polyUp}/${p.polyDown}`
+          : '-';
+        const startPriceStr = p.startPrice !== null ? '$' + Math.round(p.startPrice).toLocaleString() : '-';
+
+        pendingRow = `<tr style="background: rgba(255,255,255,0.05);">
+          <td style="color: var(--yellow);">Now</td>
+          <td class="${predClass}">${predLabel} ⏳</td>
+          <td>${modelPct}</td>
+          <td>${polyPrices}</td>
+          <td>${startPriceStr}</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td style="color: var(--text-secondary);">—</td>
+        </tr>`;
+      }
+
+      historyBody.innerHTML = pendingRow + historyRows || '<tr><td colspan="9" style="text-align: center; color: var(--text-secondary); padding: 20px;">No history yet</td></tr>';
+
+      // Win rate
+      const winRateEl = document.getElementById('winRate');
+      if (data.accuracyStats && data.accuracyStats.total > 0) {
+        const pct = Math.round(data.accuracyStats.winRate * 100);
+        winRateEl.textContent = `Win Rate: ${pct}% (${data.accuracyStats.wins}/${data.accuracyStats.total})`;
+        winRateEl.style.color = pct >= 50 ? 'var(--green)' : 'var(--red)';
+      } else {
+        winRateEl.textContent = 'Win Rate: -';
+        winRateEl.style.color = 'var(--text-secondary)';
+      }
     }
 
     connect();
   </script>
 </body>
+
 </html>

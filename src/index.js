@@ -26,6 +26,14 @@ import path from "node:path";
 import readline from "node:readline";
 import { applyGlobalProxyFromEnv } from "./net/proxy.js";
 import { startWebServer, broadcastData } from "./server.js";
+import {
+  getPending,
+  setPending,
+  settlePrediction,
+  getHistory,
+  getAccuracyStats,
+  buildPolymarketUrl
+} from "./predictionHistory.js";
 
 function countVwapCrosses(closes, vwapSeries, lookback) {
   if (closes.length < lookback || vwapSeries.length < lookback) return null;
@@ -53,6 +61,7 @@ const ANSI = {
   red: "\x1b[31m",
   green: "\x1b[32m",
   yellow: "\x1b[33m",
+  blue: "\x1b[36m",  // cyan - better visibility on dark backgrounds
   lightRed: "\x1b[91m",
   gray: "\x1b[90m",
   white: "\x1b[97m",
@@ -416,6 +425,7 @@ async function main() {
   let prevSpotPrice = null;
   let prevCurrentPrice = null;
   let priceToBeatState = { slug: null, value: null, setAtMs: null };
+  let lastTrackedSlug = null;  // Track which market we're monitoring for settlement
 
   const header = [
     "timestamp",
@@ -599,15 +609,58 @@ async function main() {
         priceToBeatState = { slug: marketSlug, value: null, setAtMs: null };
       }
 
+      // Only latch price-to-beat within a 5-second window after eventStartTime
+      // This matches when Polymarket captures their reference price
       if (priceToBeatState.slug && priceToBeatState.value === null && currentPrice !== null) {
         const nowMs = Date.now();
-        const okToLatch = marketStartMs === null ? true : nowMs >= marketStartMs;
-        if (okToLatch) {
+        if (marketStartMs !== null) {
+          const elapsedSinceStart = nowMs - marketStartMs;
+          // Only latch if we're 0-5 seconds after the window start
+          const okToLatch = elapsedSinceStart >= 0 && elapsedSinceStart <= 5000;
+          if (okToLatch) {
+            priceToBeatState = { slug: priceToBeatState.slug, value: Number(currentPrice), setAtMs: nowMs };
+          }
+        } else {
+          // Fallback if no eventStartTime available
           priceToBeatState = { slug: priceToBeatState.slug, value: Number(currentPrice), setAtMs: nowMs };
         }
       }
 
       const priceToBeat = priceToBeatState.slug === marketSlug ? priceToBeatState.value : null;
+
+      // Handle prediction tracking
+      const pending = getPending();
+
+      // Check if market changed (new window started) - settle previous prediction
+      if (pending && pending.marketSlug && marketSlug && pending.marketSlug !== marketSlug) {
+        // Market changed - settle the prediction with the last known current price
+        if (prevCurrentPrice !== null) {
+          settlePrediction(prevCurrentPrice);
+        }
+        lastTrackedSlug = null;
+      }
+
+      // Start tracking new prediction when we have a new market with price to beat
+      if (marketSlug && priceToBeat !== null && lastTrackedSlug !== marketSlug) {
+        const modelLong = timeAware?.adjustedUp ?? null;
+        const modelShort = timeAware?.adjustedDown ?? null;
+        if (modelLong !== null && modelShort !== null) {
+          setPending({
+            marketSlug,
+            startPrice: priceToBeat,
+            modelLong,
+            modelShort,
+            polyUp: marketUp,
+            polyDown: marketDown
+          });
+          lastTrackedSlug = marketSlug;
+        }
+      }
+
+      // Get history and accuracy stats for display
+      const history = getHistory();
+      const accuracyStats = getAccuracyStats();
+      const polymarketUrl = buildPolymarketUrl(marketSlug);
       const currentPriceBaseLine = colorPriceLine({
         label: "CURRENT PRICE",
         price: currentPrice,
@@ -680,9 +733,64 @@ async function main() {
               : ANSI.reset)
         : ANSI.reset;
 
+      // Format history for display - show 10 items + pending
+      const historyLines = history.slice(-10).reverse().map((h, i) => {
+        const timeStr = h.settledAt ? new Date(h.settledAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : "--:--";
+        const outcome = h.actualOutcome === "UP" ? `${ANSI.green}↑UP${ANSI.reset}` :
+          h.actualOutcome === "DOWN" ? `${ANSI.red}↓DOWN${ANSI.reset}` :
+            `${ANSI.gray}FLAT${ANSI.reset}`;
+        const pred = h.modelPrediction === "LONG" ? `${ANSI.green}L${ANSI.reset}` : `${ANSI.red}S${ANSI.reset}`;
+        const result = h.correct === null ? `${ANSI.gray}—${ANSI.reset}` :
+          h.correct ? `${ANSI.green}✓${ANSI.reset}` : `${ANSI.red}✗${ANSI.reset}`;
+
+        // Format model prediction percentages
+        const modelPct = h.modelLong !== null && h.modelShort !== null
+          ? `${Math.round(h.modelLong * 100)}/${Math.round(h.modelShort * 100)}`
+          : "-";
+
+        // Format Polymarket prices
+        const polyPrices = h.polyUp !== null && h.polyDown !== null
+          ? `${h.polyUp}¢/${h.polyDown}¢`
+          : "-";
+
+        // Format price change
+        const priceDelta = h.startPrice !== null && h.endPrice !== null
+          ? (h.endPrice - h.startPrice).toFixed(0)
+          : "-";
+        const deltaColor = Number(priceDelta) > 0 ? ANSI.green : Number(priceDelta) < 0 ? ANSI.red : ANSI.gray;
+        const deltaSign = Number(priceDelta) > 0 ? "+" : "";
+
+        // Format start/end prices
+        const startPriceStr = h.startPrice !== null ? `$${formatNumber(h.startPrice, 0)}` : "-";
+        const endPriceStr = h.endPrice !== null ? `$${formatNumber(h.endPrice, 0)}` : "-";
+
+        return `  ${timeStr} | ${pred} → ${outcome} ${result} | Model: ${modelPct} | Poly: ${polyPrices} | ${startPriceStr}→${endPriceStr} (${deltaColor}${deltaSign}$${priceDelta}${ANSI.reset})`;
+      });
+
+      // Add pending row to terminal display
+      if (pending) {
+        const timeNow = "NOW  ";
+        const pred = pending.modelLong > pending.modelShort ? `${ANSI.green}L${ANSI.reset}` : `${ANSI.red}S${ANSI.reset}`;
+        const modelPct = pending.modelLong !== null && pending.modelShort !== null
+          ? `${Math.round(pending.modelLong * 100)}/${Math.round(pending.modelShort * 100)}`
+          : "-";
+        const polyPrices = pending.polyUp !== null && pending.polyDown !== null
+          ? `${pending.polyUp}¢/${pending.polyDown}¢`
+          : "-";
+        const startPriceStr = pending.startPrice !== null ? `$${formatNumber(pending.startPrice, 0)}` : "-";
+
+        const pendingLine = `  ${ANSI.yellow}${timeNow}${ANSI.reset} | ${pred} → ⏳ Pending | Model: ${modelPct} | Poly: ${polyPrices} | ${startPriceStr}→$????`;
+        historyLines.unshift(pendingLine);
+      }
+
+      const winRateText = accuracyStats.total > 0
+        ? `${ANSI.white}${Math.round(accuracyStats.winRate * 100)}%${ANSI.reset} (${accuracyStats.wins}/${accuracyStats.total})`
+        : `${ANSI.gray}-${ANSI.reset}`;
+
       const lines = [
         titleLine,
         marketLine,
+        polymarketUrl ? kv("View:", `${ANSI.blue}${polymarketUrl}${ANSI.reset}`) : null,
         kv("Time left:", `${timeColor}${fmtTimeLeft(timeLeftMin)}${ANSI.reset}`),
         "",
         sepLine(),
@@ -708,6 +816,11 @@ async function main() {
         "",
         sepLine(),
         "",
+        kv("HISTORY:", `Win Rate: ${winRateText}`),
+        ...historyLines,
+        "",
+        sepLine(),
+        "",
         kv("ET | Session:", `${ANSI.white}${fmtEtTime(new Date())}${ANSI.reset} | ${ANSI.white}${getBtcSession(new Date())}${ANSI.reset}`),
         "",
         sepLine(),
@@ -720,6 +833,7 @@ async function main() {
       broadcastData({
         marketTitle: poly.ok ? (poly.market?.question ?? null) : null,
         marketSlug: poly.ok ? (poly.market?.slug ?? null) : null,
+        polymarketUrl,
         timeLeftMin,
         predLong: timeAware?.adjustedUp ?? null,
         predShort: timeAware?.adjustedDown ?? null,
@@ -739,7 +853,11 @@ async function main() {
         priceToBeat,
         ptbDelta,
         coinbasePrice: spotPrice,
-        session: `${fmtEtTime(new Date())} | ${getBtcSession(new Date())}`
+        session: `${fmtEtTime(new Date())} | ${getBtcSession(new Date())}`,
+        history: history.slice(-10).reverse(),
+        accuracyStats,
+        pending: getPending(),
+        recommendation: rec
       });
 
       prevSpotPrice = spotPrice ?? prevSpotPrice;
