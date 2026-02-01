@@ -1,8 +1,26 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import { appendCsvRow } from "./utils.js";
+
 const HISTORY_FILE = "./logs/prediction_history.json";
+const CSV_HISTORY_FILE = "./logs/full_history.csv";
 const MAX_HISTORY = 10;
+
+const CSV_HEADER = [
+    "SettledAt",
+    "Time",
+    "MarketSlug",
+    "StartPrice",
+    "EndPrice",
+    "ActualOutcome",
+    "ModelPrediction",
+    "ModelLong",
+    "ModelShort",
+    "PolyUp",
+    "PolyDown",
+    "Correct"
+];
 
 let state = {
     pending: null,
@@ -86,6 +104,7 @@ export function settlePrediction(endPrice) {
     const correct = (modelPrediction === "LONG" && actualOutcome === "UP") ||
         (modelPrediction === "SHORT" && actualOutcome === "DOWN");
 
+    const settledAt = Date.now();
     const settled = {
         marketSlug: state.pending.marketSlug,
         startPrice: state.pending.startPrice,
@@ -97,14 +116,36 @@ export function settlePrediction(endPrice) {
         polyUp: state.pending.polyUp,
         polyDown: state.pending.polyDown,
         correct: actualOutcome === "FLAT" ? null : correct,
-        settledAt: Date.now()
+        settledAt
     };
 
     state.history.push(settled);
 
-    // Keep only last N predictions
+    // Keep only last N predictions for JSON/UI
     if (state.history.length > MAX_HISTORY) {
         state.history = state.history.slice(-MAX_HISTORY);
+    }
+
+    // Push to Full CSV History
+    try {
+        const timeStr = new Date(settledAt).toISOString();
+        const row = [
+            settledAt,
+            timeStr,
+            settled.marketSlug,
+            settled.startPrice,
+            settled.endPrice,
+            settled.actualOutcome,
+            settled.modelPrediction,
+            settled.modelLong,
+            settled.modelShort,
+            settled.polyUp,
+            settled.polyDown,
+            settled.correct === null ? "FLAT" : settled.correct
+        ];
+        appendCsvRow(CSV_HISTORY_FILE, CSV_HEADER, row);
+    } catch {
+        // Ignore CSV write errors
     }
 
     state.pending = null;

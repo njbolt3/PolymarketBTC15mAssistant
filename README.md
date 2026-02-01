@@ -22,7 +22,7 @@ Version 1.5 features a multi-indicator TA model, persistent prediction history, 
 - **Coinbase Integration**: Real-time spot price feed from Coinbase Exchange.
 - **Chainlink Oracle**: Live BTC/USD price feed directly from the Polymarket/Chainlink source.
 - **Fallback Logic**: Automatic fallback to on-chain Polygon Chainlink data if websockets fail.
-- **Persistence**: Prediction history and win-rate statistics are saved to `./logs/prediction_history.json`.
+- **Persistence**: Results are saved to `./logs/prediction_history.json` (last 10) and **`./logs/full_history.csv`** (all-time history).
 
 ---
 

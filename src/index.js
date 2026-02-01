@@ -19,7 +19,8 @@ import { computeHeikenAshi, countConsecutive } from "./indicators/heikenAshi.js"
 import { detectRegime } from "./engines/regime.js";
 import { scoreDirection, applyTimeAwareness } from "./engines/probability.js";
 import { computeEdge, decide } from "./engines/edge.js";
-import { appendCsvRow, formatNumber, formatPct, getCandleWindowTiming, sleep } from "./utils.js";
+import { computeAtr, computeBollingerBands } from "./indicators/volatility.js";
+import { formatNumber, formatPct, getCandleWindowTiming, sleep } from "./utils.js";
 import { startCoinbaseTickerStream } from "./data/coinbaseWs.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -111,6 +112,8 @@ function kv(label, value) {
   const l = padLabel(String(label), LABEL_W);
   return `${l}${value}`;
 }
+
+const atrHistory = [];
 
 function section(title) {
   return `${ANSI.white}${title}${ANSI.reset}`;
@@ -427,21 +430,6 @@ async function main() {
   let priceToBeatState = { slug: null, value: null, setAtMs: null };
   let lastTrackedSlug = null;  // Track which market we're monitoring for settlement
 
-  const header = [
-    "timestamp",
-    "entry_minute",
-    "time_left_min",
-    "regime",
-    "signal",
-    "model_up",
-    "model_down",
-    "mkt_up",
-    "mkt_down",
-    "edge_up",
-    "edge_down",
-    "recommendation"
-  ];
-
   while (true) {
     const timing = getCandleWindowTiming(CONFIG.candleWindowMinutes);
 
@@ -504,6 +492,15 @@ async function main() {
       const volumeRecent = candles.slice(-20).reduce((a, c) => a + c.volume, 0);
       const volumeAvg = candles.slice(-120).reduce((a, c) => a + c.volume, 0) / 6;
 
+      // Volatility Indicators
+      const atr = computeAtr(candles, 14);
+      if (atr !== null) {
+        atrHistory.push(atr);
+        if (atrHistory.length > 50) atrHistory.shift();
+      }
+      const atrAvg = atrHistory.length ? atrHistory.reduce((a, b) => a + b, 0) / atrHistory.length : null;
+      const bb = computeBollingerBands(closes, 20, 2);
+
       const failedVwapReclaim = vwapNow !== null && vwapSeries.length >= 3
         ? closes[closes.length - 1] < vwapNow && closes[closes.length - 2] > vwapSeries[vwapSeries.length - 2]
         : false;
@@ -514,7 +511,10 @@ async function main() {
         vwapSlope,
         vwapCrossCount,
         volumeRecent,
-        volumeAvg
+        volumeAvg,
+        atr,
+        atrAvg,
+        bb
       });
 
       const scored = scoreDirection({
@@ -526,7 +526,9 @@ async function main() {
         macd,
         heikenColor: consec.color,
         heikenCount: consec.count,
-        failedVwapReclaim
+        failedVwapReclaim,
+        regime: regimeInfo.regime,
+        bb
       });
 
       const timeAware = applyTimeAwareness(scored.rawUp, timeLeftMin, CONFIG.candleWindowMinutes);
@@ -557,6 +559,11 @@ async function main() {
       const macdNarrative = narrativeFromSign(macd?.hist ?? null);
       const vwapNarrative = narrativeFromSign(vwapDist);
 
+      const regimeColor = regimeInfo.regime.includes("UP") ? ANSI.green : regimeInfo.regime.includes("DOWN") ? ANSI.red : ANSI.yellow;
+      const regimeLine = `Regime: ${regimeColor}${regimeInfo.regime}${ANSI.reset} (${ANSI.dim}${regimeInfo.reason}${ANSI.reset})`;
+
+      const bbLine = bb ? `BBands: $${formatNumber(bb.lower, 0)} - $${formatNumber(bb.upper, 0)} (ATR: ${formatNumber(atr, 2)})` : "BBands: -";
+
       const pLong = timeAware?.adjustedUp ?? null;
       const pShort = timeAware?.adjustedDown ?? null;
       const predictNarrative = (pLong !== null && pShort !== null && Number.isFinite(pLong) && Number.isFinite(pShort))
@@ -585,6 +592,11 @@ async function main() {
 
       const vwapValue = `${formatNumber(vwapNow, 0)} (${formatPct(vwapDist, 2)}) | slope: ${vwapSlopeLabel}`;
       const vwapLine = formatNarrativeValue("VWAP", vwapValue, vwapNarrative);
+
+      const signalColor = rec.action === "ENTER" ? (rec.side === "UP" ? ANSI.green : ANSI.red) : ANSI.gray;
+      const strengthColor = rec.strength === "STRONG" ? ANSI.green : rec.strength === "GOOD" ? ANSI.blue : ANSI.white;
+      const signalLine = `Signal: ${signalColor}${rec.action === "ENTER" ? (rec.side === "UP" ? "BUY UP" : "BUY DOWN") : "NO TRADE"}${ANSI.reset} | ${strengthColor}${rec.strength || "WAITING"}${ANSI.reset}`;
+
 
       const signal = rec.action === "ENTER" ? (rec.side === "UP" ? "BUY UP" : "BUY DOWN") : "NO TRADE";
 
@@ -796,6 +808,12 @@ async function main() {
         sepLine(),
         "",
         kv("TA Predict:", predictValue),
+        regimeLine,
+        bbLine,
+        "",
+        kv("POLYMARKET:", polyHeaderValue),
+        kv("Signal:", signalLine),
+        kv("Phase:", rec.phase),
         kv("Heiken Ashi:", heikenLine.split(": ")[1] ?? heikenLine),
         kv("RSI:", rsiLine.split(": ")[1] ?? rsiLine),
         kv("MACD:", macdLine.split(": ")[1] ?? macdLine),
@@ -857,26 +875,13 @@ async function main() {
         history: history.slice(-10).reverse(),
         accuracyStats,
         pending: getPending(),
-        recommendation: rec
+        recommendation: rec,
+        regime: regimeInfo,
+        atr,
+        bb
       });
 
-      prevSpotPrice = spotPrice ?? prevSpotPrice;
       prevCurrentPrice = currentPrice ?? prevCurrentPrice;
-
-      appendCsvRow("./logs/signals.csv", header, [
-        new Date().toISOString(),
-        timing.elapsedMinutes.toFixed(3),
-        timeLeftMin.toFixed(3),
-        regimeInfo.regime,
-        signal,
-        timeAware.adjustedUp,
-        timeAware.adjustedDown,
-        marketUp,
-        marketDown,
-        edge.edgeUp,
-        edge.edgeDown,
-        rec.action === "ENTER" ? `${rec.side}:${rec.phase}:${rec.strength}` : "NO_TRADE"
-      ]);
     } catch (err) {
       console.log("────────────────────────────");
       console.log(`Error: ${err?.message ?? String(err)}`);

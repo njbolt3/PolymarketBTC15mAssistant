@@ -12,7 +12,8 @@ const MIME_TYPES = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".svg": "image/svg+xml",
-    ".ico": "image/x-icon"
+    ".ico": "image/x-icon",
+    ".csv": "text/csv"
 };
 
 let wss = null;
@@ -28,8 +29,27 @@ export function startWebServer() {
 
     const port = CONFIG.web?.port ?? 3000;
     const publicDir = path.resolve(import.meta.dirname, "../public");
+    const logsDir = path.resolve(import.meta.dirname, "../logs");
 
     httpServer = http.createServer((req, res) => {
+        // Special route for prediction history download
+        if (req.url === "/download-history") {
+            const historyPath = path.join(logsDir, "full_history.csv");
+            fs.readFile(historyPath, (err, data) => {
+                if (err) {
+                    res.writeHead(404);
+                    res.end("History file not found");
+                    return;
+                }
+                res.writeHead(200, {
+                    "Content-Type": "text/csv",
+                    "Content-Disposition": 'attachment; filename="polymarket_btc_history.csv"'
+                });
+                res.end(data);
+            });
+            return;
+        }
+
         let filePath = req.url === "/" ? "/index.html" : req.url;
         filePath = path.join(publicDir, filePath);
 

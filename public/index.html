@@ -439,6 +439,25 @@
       font-weight: 600;
     }
 
+    .download-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .download-btn:hover {
+      background: rgba(0, 255, 149, 0.1);
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 12px;
@@ -493,6 +512,7 @@
         <div class="card-title">Trade Signal</div>
         <div id="signalStrength" class="signal-strength strength-none">WAITING</div>
         <div id="signalValue" class="signal-value">-</div>
+        <div id="marketRegime" class="phase-badge" style="margin-top: 0; margin-bottom: 8px;">Regime: <b>-</b></div>
         <div id="marketPhase" class="phase-badge">Phase: <b>-</b></div>
       </div>
 
@@ -536,7 +556,15 @@
         </div>
         <div class="indicator-row">
           <span class="indicator-label">Delta 1m / 3m</span>
-          <span class="indicator-value" id="delta">-</span>
+          <div id="delta" class="indicator-value">-</div>
+        </div>
+        <div class="indicator-row">
+          <span class="indicator-label">BBands</span>
+          <div id="bbands" class="indicator-value">-</div>
+        </div>
+        <div class="indicator-row">
+          <span class="indicator-label">ATR (14)</span>
+          <div id="atr" class="indicator-value">-</div>
         </div>
       </div>
 
@@ -559,7 +587,10 @@
 
     <div class="grid">
       <div class="card">
-        <div class="card-title">Prediction History</div>
+        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Prediction History</span>
+          <a href="/download-history" class="download-btn" target="_blank">Download CSV</a>
+        </div>
         <div id="winRate" style="font-size: 1.2rem; font-weight: 600; text-align: center; margin-bottom: 12px;">-</div>
         <div style="overflow-x: auto;">
           <table class="history-table" id="historyTable">
@@ -691,7 +722,24 @@
         phaseEl.innerHTML = `Phase: <b>${rec.phase}</b>`;
       }
 
-      // Indicators
+      // Regime Info
+      if (data.regime) {
+        const regimeEl = document.getElementById('marketRegime');
+        const r = data.regime;
+        const color = r.regime.includes('UP') ? 'var(--green)' : r.regime.includes('DOWN') ? 'var(--red)' : 'var(--yellow)';
+        regimeEl.innerHTML = `Regime: <b style="color: ${color}">${r.regime}</b>`;
+        regimeEl.title = r.reason;
+      }
+
+      // Volatility Indicators
+      document.getElementById('atr').textContent = data.atr ? data.atr.toFixed(2) : '-';
+      if (data.bb) {
+        document.getElementById('bbands').textContent = `$${Math.round(data.bb.lower)} - $${Math.round(data.bb.upper)}`;
+      } else {
+        document.getElementById('bbands').textContent = '-';
+      }
+
+      // Indicators (Existing)
       const heikenEl = document.getElementById('heikenAshi');
       heikenEl.textContent = data.heikenAshi || '-';
       heikenEl.className = 'indicator-value ' + getNarrativeClass(data.heikenNarrative);
@@ -744,7 +792,7 @@
 
       // Set up headers with tooltips
       historyHead.innerHTML = `<tr>
-        <th title="Time the prediction was made or settled">Time</th>
+        <th title="Time the prediction was settled">Time</th>
         <th title="Technical Analysis model prediction at window start">Model</th>
         <th title="Model's Long/Short probability percentages">L/S %</th>
         <th title="Polymarket Up/Down prices at prediction time">Poly</th>
