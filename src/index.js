@@ -20,6 +20,7 @@ import { detectRegime } from "./engines/regime.js";
 import { scoreDirection, applyTimeAwareness } from "./engines/probability.js";
 import { computeEdge, decide } from "./engines/edge.js";
 import { computeAtr, computeBollingerBands } from "./indicators/volatility.js";
+import { computeRocWithAcceleration, computeEmaCrossover, detectRsiDivergence } from "./indicators/momentum.js";
 import { formatNumber, formatPct, getCandleWindowTiming, sleep } from "./utils.js";
 import { startCoinbaseTickerStream } from "./data/coinbaseWs.js";
 import fs from "node:fs";
@@ -429,6 +430,9 @@ async function main() {
   let prevCurrentPrice = null;
   let priceToBeatState = { slug: null, value: null, setAtMs: null };
   let lastTrackedSlug = null;  // Track which market we're monitoring for settlement
+  let prevPolyUp = null;  // For Polymarket momentum tracking
+  let prevPolyDown = null;
+  const rsiHistory = [];  // For RSI divergence detection
 
   while (true) {
     const timing = getCandleWindowTiming(CONFIG.candleWindowMinutes);
@@ -505,6 +509,37 @@ async function main() {
         ? closes[closes.length - 1] < vwapNow && closes[closes.length - 2] > vwapSeries[vwapSeries.length - 2]
         : false;
 
+      // ══════════════════════════════════════════════════════════════
+      // TIER 1 MOMENTUM INDICATORS
+      // ══════════════════════════════════════════════════════════════
+
+      // 1. Rate of Change with Acceleration
+      const roc = computeRocWithAcceleration(closes, 5, 3);
+
+      // 2. EMA Crossover (Fast 3 / Slow 8)
+      const emaCross = computeEmaCrossover(closes, 3, 8);
+
+      // 3. RSI Divergence Detection
+      if (rsiNow !== null) {
+        rsiHistory.push(rsiNow);
+        if (rsiHistory.length > 20) rsiHistory.shift();
+      }
+      const rsiDivergence = detectRsiDivergence(closes.slice(-10), rsiHistory.slice(-10), 5);
+
+      // 4. Polymarket Momentum (shift in odds)
+      const currentPolyUp = poly.ok ? poly.prices.up : null;
+      const currentPolyDown = poly.ok ? poly.prices.down : null;
+      let polyMomentum = null;
+      if (currentPolyUp !== null && prevPolyUp !== null) {
+        const delta = currentPolyUp - prevPolyUp;
+        polyMomentum = {
+          delta,
+          direction: delta > 0 ? "UP" : delta < 0 ? "DOWN" : "FLAT"
+        };
+      }
+      prevPolyUp = currentPolyUp;
+      prevPolyDown = currentPolyDown;
+
       const regimeInfo = detectRegime({
         price: lastPrice,
         vwap: vwapNow,
@@ -528,7 +563,12 @@ async function main() {
         heikenCount: consec.count,
         failedVwapReclaim,
         regime: regimeInfo.regime,
-        bb
+        bb,
+        // Tier 1 signals
+        roc,
+        emaCross,
+        rsiDivergence,
+        polyMomentum
       });
 
       const timeAware = applyTimeAwareness(scored.rawUp, timeLeftMin, CONFIG.candleWindowMinutes);
